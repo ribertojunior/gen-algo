@@ -13,4 +13,9 @@ public class Solution implements Comparable<Solution> {
     public int compareTo(Solution sol) {
         return Double.compare(getFitness(), sol.getFitness());
     }
+
+    @Override
+    public String toString() {
+        return String.format("Solution(x=%.5f, fitness=%.5f)", x, fitness);
+    }
 }

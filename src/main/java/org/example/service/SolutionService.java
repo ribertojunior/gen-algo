@@ -1,6 +1,9 @@
 package org.example.service;
 
-import org.apache.commons.lang3.RandomUtils;
+import lombok.AccessLevel;
+import lombok.NoArgsConstructor;
+import org.apache.commons.lang3.ObjectUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.example.model.Population;
 import org.example.model.Quadratic;
 import org.example.model.Solution;
@@ -10,39 +13,37 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.stream.Collectors;
 
+import static org.example.Constants.DECIMAL_PLACE;
+import static org.example.service.SolutionListFactory.SIZE;
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class SolutionService {
 
-
-    public static Solution generate() {
-        return new Solution(Math.floor(RandomUtils.secure().randomDouble(0, 1000) * 10000 ) / 10000, null);
+    public static Population generateMultiThread(int size) {
+        return new Population(generateListMultiThread(size, null));
     }
 
-    public Population generate(int size) {
-        return new Population(generateList(size));
+    public static Population generateMultiThread(int size, Population elite) {
+        return new Population(generateListMultiThread(size, elite));
     }
 
-    public Population generateMultiThread(int size) {
-        return new Population(generateListMultiThread(size, 0));
+    public static List<Solution> generateListMultiThread(int size) {
+        return generateListMultiThread(size, null);
     }
 
-    public Population generateMultiThread(int size, double seed) {
-        return new Population(generateListMultiThread(size, seed));
-    }
-
-    public Population generate(int size, Population elite) {
-        return new Population(generateList(size, elite));
-    }
-
-    public List<Solution> generateListMultiThread(int size, double seed) {
-        if (size % 10 != 0) {
-            System.out.println("Error size is not a multiple of 10");
-            throw new RuntimeException("Error size is not a multiple of 10");
+    public static List<Solution> generateListMultiThread(int size, Population seed) {
+        if (size % 100 != 0) {
+            System.out.println("Error size is not a multiple of 100");
+            throw new RuntimeException("Error size is not a multiple of 100");
         }
-        int threadPollSize = size / SolutionListFactory.SIZE;
+        LinkedList<Solution> seedQueue = seed != null && ObjectUtils.isNotEmpty(seed.getPopulation()) ? new LinkedList<>(seed.getPopulation()) : null;
+        int threadPollSize = size / SIZE;
         ArrayList<SolutionListFactory> factories = new ArrayList<>();
         for (int i = 0; i < threadPollSize; i++) {
-            factories.add( new SolutionListFactory(i, seed));
+            Pair<Solution, Solution> solutionPair = getSolutionPair(seedQueue);
+            factories.add(new SolutionListFactory(i, solutionPair));
+            requeueSolutions(seedQueue, solutionPair);
         }
         ArrayList<Solution> solutions = new ArrayList<>();
         List<Future<List<Solution>>> futures;
@@ -61,33 +62,24 @@ public class SolutionService {
         return solutions;
     }
 
-    public List<Solution> generateList(int size) {
-        ArrayList<Solution> pop = new ArrayList<>();
-        for (int i = 0; i < size; i++) {
-            pop.add(generate());
-            if (i % 1000 == 0) {
-                int pb = (int) ((i / (float) size) * 100);
-                System.out.print( "=".repeat(pb)+ " " + pb + "%\r");
-            }
+    private static void requeueSolutions(LinkedList<Solution> seedQueue, Pair<Solution, Solution> solutionPair) {
+        if (seedQueue != null) {
+            seedQueue.add(solutionPair.getLeft());
+            seedQueue.add(solutionPair.getRight());
         }
-        return pop;
     }
 
-    public List<Solution> generateList(int size, Population elite) {
-        ArrayList<Solution> pop = new ArrayList<>();
-        for (int i = 0; i < size; i++) {
-            pop.add(generate());
-        }
-        return pop;
+    private static Pair<Solution, Solution> getSolutionPair(LinkedList<Solution> seedQueue) {
+        return seedQueue != null ? Pair.of(seedQueue.remove(), seedQueue.remove()) : null;
     }
 
-    public void fitness(Population pop, Quadratic equation) {
+    public static void fitness(Population pop, Quadratic equation) {
         for (Solution sol : pop.getPopulation()) {
             sol.setFitness(equation.evaluate(sol.getX()));
         }
     }
 
-    public boolean hasTwoSolutions(List<Solution> pop) {
+    public static boolean hasTwoSolutions(List<Solution> pop) {
         Map<Double, Set<Double>> isZero = new HashMap<>();
         for (Solution sol : pop) {
             if (sol.getFitness() == 0 && !containsSolution(isZero, sol)) {
@@ -95,6 +87,9 @@ public class SolutionService {
                 setX = setX != null ? setX : new HashSet<>();
                 setX.add(sol.getX());
                 isZero.put(sol.getFitness(), setX);
+                if (setX.size() == 2) {
+                    break;
+                }
             }
         }
         boolean hasTwo = false;
@@ -102,13 +97,19 @@ public class SolutionService {
             Set<Double> solutionSet = entry.getValue();
             if (solutionSet.size() > 1) {
                 hasTwo = true;
+                System.out.println("Solution found: " + solutionSet.stream().map(s -> String.format("%.5f ",s)).collect(Collectors.joining()));
                 break;
             }
         }
         return hasTwo;
     }
 
-    private boolean containsSolution(Map<Double, Set<Double>> isZero, Solution sol) {
-        return isZero.containsKey(sol.getFitness()) && isZero.get(sol.getFitness()).contains(sol.getX());
+    private static boolean containsSolution(Map<Double, Set<Double>> isZero, Solution sol) {
+        return isZero.containsKey(sol.getFitness()) && isZero.get(sol.getFitness()).contains(round(sol.getX()));
+    }
+
+    public static double round(double x) {
+        if (x >= 0) return Math.floor(x * DECIMAL_PLACE) / DECIMAL_PLACE;
+        else return Math.ceil(x * DECIMAL_PLACE) / DECIMAL_PLACE;
     }
 }

@@ -13,15 +13,13 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class SolutionServiceTest {
 
-    public final SolutionService service = new SolutionService();
-
     @Test
     void givenSize_whenGenerateListIsCalled_thenAValidListIsCreated() {
         // given
-        int size = 12;
+        int size = 100;
 
         // when
-        List<Solution> solutions = service.generateList(size);
+        List<Solution> solutions = SolutionService.generateListMultiThread(size);
 
         // then
         assert size == solutions.size();
@@ -30,11 +28,11 @@ class SolutionServiceTest {
     @Test
     void givenRandomGeneratedPopulation_whenFitnessIsCalculated_thenSolutionsAreUpdated() {
         // given
-        Population population = service.generate(100);
+        Population population = SolutionService.generateMultiThread(100);
         assert population.getPopulation().stream().allMatch(solution -> null == solution.getFitness());
 
         // when
-        service.fitness(population, new Quadratic(1,5,1));
+        SolutionService.fitness(population, new Quadratic(1,5,1));
 
         // then
         assert population.getPopulation().stream().allMatch(solution -> null != solution.getFitness());
@@ -49,10 +47,10 @@ class SolutionServiceTest {
         Population population = new Population(solutions);
 
         // when
-        service.fitness(population, new Quadratic(1, 1, 0));
+        SolutionService.fitness(population, new Quadratic(1, 1, 0));
 
         // then
-        assert !service.hasTwoSolutions(population.getPopulation());
+        assert !SolutionService.hasTwoSolutions(population.getPopulation());
     }
 
     @Test
@@ -64,10 +62,10 @@ class SolutionServiceTest {
         Population population = new Population(solutions);
 
         // when
-        service.fitness(population, new Quadratic(1, 1, 0));
+        SolutionService.fitness(population, new Quadratic(1, 1, 0));
 
         // then
-        assert !service.hasTwoSolutions(population.getPopulation());
+        assert !SolutionService.hasTwoSolutions(population.getPopulation());
     }
 
     @Test
@@ -79,10 +77,10 @@ class SolutionServiceTest {
         Population population = new Population(solutions);
 
         // when
-        service.fitness(population, new Quadratic(1, 1, 0));
+        SolutionService.fitness(population, new Quadratic(1, 1, 0));
 
         // then
-        assert service.hasTwoSolutions(population.getPopulation());
+        assert SolutionService.hasTwoSolutions(population.getPopulation());
     }
 
     @Test
@@ -91,7 +89,7 @@ class SolutionServiceTest {
         int size = 500;
 
         // when
-        List<Solution> solutions = service.generateListMultiThread(size);
+        List<Solution> solutions = SolutionService.generateListMultiThread(size);
 
         // then
         assert size == solutions.size();
@@ -104,7 +102,23 @@ class SolutionServiceTest {
 
         // when
         // then
-        assertThrows(RuntimeException.class, () -> service.generateListMultiThread(size));
+        assertThrows(RuntimeException.class, () -> SolutionService.generateListMultiThread(size));
+    }
+
+    @Test
+    void givenElite_whenPopulationGenerationIsCalled_thenAValidPopulationIsReturned() {
+        // given
+        int size = 100;
+        Solution a = new Solution(1, 1D);
+        Solution b = new Solution(2, -1D);
+        Population elite = new Population(List.of(a, b));
+
+        // when
+        List<Solution> solutions = SolutionService.generateListMultiThread(size, elite);
+
+        // then
+        assert size == solutions.size();
+        assert solutions.stream().allMatch(s -> s != null && s.getX() != 0 && s.getFitness() == null);
     }
 
 }

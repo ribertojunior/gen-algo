@@ -11,32 +11,40 @@ import java.util.Collections;
 
 public class Main {
     public static void main(String[] args) {
-        int eliteSize = 10;
+        int eliteSize = 100;
         int populationSize = 1_000_000;
         int iteration = 0;
-        SolutionService service = new SolutionService();
         Population elite = new Population(new ArrayList<>());
         Quadratic equation = new Quadratic(1, 1, 0);
-        while (!service.hasTwoSolutions(elite.getPopulation())) {
+        while (!SolutionService.hasTwoSolutions(elite.getPopulation())) {
             // create population
             int newPopSize = elite.getPopulation().isEmpty() ? populationSize : populationSize - eliteSize;
-            // System.out.print("Generating new population with size " + newPopSize + " and elite size " + elite.getPopulation().size() + "\r");
-            Population population = service.generateMultiThread(newPopSize);
+            Population population = SolutionService.generateMultiThread(newPopSize, elite);
             population.getPopulation().addAll(elite.getPopulation());
 
 
             // evaluate fitness
-            service.fitness(population, equation);
+            SolutionService.fitness(population, equation);
             Collections.sort(population.getPopulation());
+
+            // create elite
             elite.setPopulation(new ArrayList<>());
             for (int i = 0, j = 0; i < eliteSize && j < population.getPopulation().size(); j++) {
                 Solution solution = population.getPopulation().get(j);
                 if (solution.getFitness() >= 0 && solution.getFitness() < 1000) {
-                    elite.getPopulation().add(solution);
+                    elite.getPopulation().add(i, solution);
                     i++;
                 }
             }
-            System.out.print("Iteration " + iteration++ + " Elite: " + elite + "\r");
+            System.out.print("Iteration " + iteration++ + " Elite 10: " + printElite(elite, 10) + "\r");
         }
+    }
+
+    private static String printElite(Population elite, int limit) {
+        StringBuilder sb = new StringBuilder();
+        for(int i = 0; i < limit; i++) {
+            sb.append(elite.getPopulation().get(i)).append(" ");
+        }
+        return sb.toString();
     }
 }
